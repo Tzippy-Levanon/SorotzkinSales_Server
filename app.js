@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import session from "express-session";
 
-import connectDB from "./config/db.js";
+import { connectDB } from "./config/db.js";
 connectDB();
 
 import swaggerUi from "swagger-ui-express";
