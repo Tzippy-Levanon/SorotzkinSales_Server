@@ -13,13 +13,13 @@ import swaggerSpec from "./config/swagger.js";
 import suppliersRoutes from "./api/routes/suppliers.routes.js";
 import productsRoutes from "./api/routes/products.routes.js";
 import salesRoutes from "./api/routes/sales.routes.js";
+import errorMiddleware from "./api/middlewares/error.middleware.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(
   session({
@@ -38,10 +38,7 @@ app.get("/", (req, res) => {
   res.send("🚀 Server is running");
 });
 
-// ================= ERROR HANDLER (בעתיד) =================
-
-// import errorHandler from "./middlewares/errorHandler.js";
-// app.use(errorHandler);
+app.use(errorMiddleware);
 
 const PORT = process.env.PORT || 5000;
 
