@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("", getAllSales);
 router.post("", addSale);
-router.post("/:saleId/products", addProductsToSale);
-router.patch("/:saleId/close", closeSale);
+router.post("/addProductsToSale/:saleId/products", addProductsToSale);
+router.patch("/:saleId/products", closeSale);
 
 export default router;

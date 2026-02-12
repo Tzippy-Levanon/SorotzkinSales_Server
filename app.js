@@ -7,9 +7,6 @@ import session from "express-session";
 import { connectDB } from "./config/db.js";
 connectDB();
 
-import swaggerUi from "swagger-ui-express";
-import swaggerSpec from "./config/swagger.js";
-
 import suppliersRoutes from "./api/routes/suppliers.routes.js";
 import productsRoutes from "./api/routes/products.routes.js";
 import salesRoutes from "./api/routes/sales.routes.js";

@@ -24,17 +24,17 @@ export const updateProduct = async (req, res, next) => {
     }
     if (body.supplier_id !== undefined) updates.supplier_id = Number(body.supplier_id);
     if (body.cost_price !== undefined) {
-        const price = Number(body.cost_price);
+        const price = body.cost_price;
         if (isNaN(price) || price < 0) return next(err('מחיר העלות חייב להיות מספר חיובי'));
         updates.cost_price = price;
     }
     if (body.selling_price !== undefined) {
-        const price = Number(body.selling_price);
+        const price = body.selling_price;
         if (isNaN(price) || price < 0) return next(err('מחיר המכירה חייב להיות מספר חיובי'));
         updates.selling_price = price;
     }
     if (body.total_in_stock !== undefined) {
-        const stock = Number(body.total_in_stock);
+        const stock = body.total_in_stock;
         if (isNaN(stock) || stock < 0 || stock !== Math.floor(stock))
             return next(err('הכמות במלאי חייבת להיות מספר שלם חיובי'));
         updates.total_in_stock = stock;
@@ -58,9 +58,9 @@ export const addProduct = async (req, res, next) => {
     if (cost_price == null) return next(err('מחיר העלות הוא שדה חובה'));
     if (selling_price == null) return next(err('מחיר המכירה הוא שדה חובה'));
 
-    const cost = Number(cost_price);
-    const selling = Number(selling_price);
-    const stock = Number(total_in_stock) || 0;
+    const cost = cost_price;
+    const selling = selling_price;
+    const stock = total_in_stock || 0;
     if (isNaN(cost) || cost < 0) return next(err('מחיר העלות חייב להיות מספר חיובי'));
     if (isNaN(selling) || selling < 0) return next(err('מחיר המכירה חייב להיות מספר חיובי'));
     if (isNaN(stock) || stock < 0 || stock !== Math.floor(stock))
@@ -68,7 +68,7 @@ export const addProduct = async (req, res, next) => {
 
     const { data, error } = await db()
         .from('products')
-        .insert({ name: name.trim(), supplier_id: Number(supplier_id), cost_price: cost, selling_price: selling, is_active: Boolean(is_active), total_in_stock: stock })
+        .insert({ name: name.trim(), supplier_id: supplier_id, cost_price: cost, selling_price: selling, is_active: is_active, total_in_stock: stock })
         .select()
         .single();
     if (error) return next(error);

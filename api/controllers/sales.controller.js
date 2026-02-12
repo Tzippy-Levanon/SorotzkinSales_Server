@@ -20,7 +20,7 @@ export const addSale = async (req, res, next) => {
     if (date == null) return next(err('תאריך המכירה הוא שדה חובה'));
 
     const { data, error } = await db()
-        .from('sale_events')
+        .from('sales_events')
         .insert({ name: name.trim(), date: date, status: 'open' })
         .select()
         .single();
@@ -31,93 +31,98 @@ export const addSale = async (req, res, next) => {
 export const addProductsToSale = async (req, res, next) => {
     const { saleId } = req.params;
     const { products } = req.body;
+    
+    if (!products || !Array.isArray(products) || products.length === 0) return next(err('יש לספק מערך של מוצרים'));
 
-    if (!products || !Array.isArray(products) || products.length === 0)
-        return next(err('יש לספק מערך של מוצרים'));
+    const { data: sale, error: saleErr } = await db().from('sales_events').select('status').eq('id', saleId).single();
+    if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
+    if (sale.status !== 'open') return next(err('המכירה סגורה לשינויים'));
+    const productIds = products.map(p => p.product_id);
+    const { data: dbProducts, error: prodErr } = await db().from('products').select('id, cost_price, selling_price, total_in_stock, is_active').in('id', productIds);
+    if (prodErr) return next(prodErr);
 
-    const sale = await db().from('sale_events').select('id, status').eq('id', saleId).single();
-    if (sale.error) return next(sale.error);
-    if (!sale.data) return next(err('מכירה לא נמצאה', 404));
-    if (sale.data.status !== 'open') return next(err('לא ניתן להוסיף מוצרים למכירה סגורה'));
+    const { data: existingItems } = await db().from('sale_items').select('product_id, opening_stock').eq('sale_id', saleId);
+    const itemsToInsert = [];
 
-    const items = [];
     for (const p of products) {
-        const { product_id, quantity } = p;
-        if (!product_id) return next(err('כל מוצר חייב לכלול product_id'));
-        const qtyNum = quantity != null ? Number(quantity) : null;
-        if (qtyNum != null && (isNaN(qtyNum) || qtyNum <= 0 || qtyNum !== Math.floor(qtyNum)))
-            return next(err('הכמות חייבת להיות מספר שלם חיובי גדול מ- 0'));
+        const dbProd = dbProducts.find(dbP => dbP.id === p.product_id);
+        if (!dbProd) return next(err(`מוצר ${p.product_id} לא קיים במערכת`));
+        if (!dbProd.is_active) return next(err(`מוצר ${p.product_id} אינו פעיל`));
 
-        const product = await db().from('products').select('cost_price, selling_price, total_in_stock, is_active').eq('Id', product_id).single();
-        if (product.error) return next(product.error);
-        if (!product.data) return next(err(`מוצר ${product_id} לא נמצא`, 404));
-        if (!product.data.is_active) return next(err(`לא ניתן להוסיף מוצר ${product_id} - המוצר אינו פעיל`));
-        const available = product.data.total_in_stock ?? 0;
-        const openingStock = qtyNum != null && qtyNum > 0 ? Math.min(qtyNum, available) : available;
-        if (openingStock <= 0) return next(err(`אין מלאי למוצר ${product_id}`));
+        const existing = existingItems?.find(ei => ei.product_id === p.product_id);
+        const currentInSale = existing ? existing.opening_stock : 0;
+        const totalRequested = currentInSale + p.quantity;
 
-        items.push({
-            sale_id: Number(saleId),
-            product_id: Number(product_id),
-            opening_stock: openingStock,
-            sold_quantity: 0,
-            remaining_quantity: openingStock,
-            cost_price: product.data.cost_price,
-            selling_price: product.data.selling_price,
-        });
+        if (totalRequested > dbProd.total_in_stock) {
+            return next(err(`חוסר במלאי למוצר ${p.product_id}.+"\n"+במלאי: ${dbProd.total_in_stock}, במכירה כבר יש: ${currentInSale} מהמוצר.`));
+        }
+
+        if (existing) {
+            const { error: updErr } = await db().from('sale_items').update({ opening_stock: totalRequested, remaining_quantity: totalRequested })
+                .eq('sale_id', saleId).eq('product_id', p.product_id);
+
+            if (updErr) return next(updErr);
+        }
+        else {
+            itemsToInsert.push({
+                sale_id: saleId, product_id: p.product_id, opening_stock: p.quantity, remaining_quantity: p.quantity,
+                cost_price: dbProd.cost_price, selling_price: dbProd.selling_price, sold_quantity: 0
+            });
+        }
     }
 
-    const { data, error } = await db().from('sale_items').insert(items).select();
-    if (error) return next(error);
-    res.status(201).json(data);
+    if (itemsToInsert.length > 0) {
+        const { data, error } = await db().from('sale_items').insert(itemsToInsert).select();
+        if (error) return next(error);
+        return res.status(201).json({ message: 'המוצרים נוספו/עודכנו בהצלחה', data });
+    }
+
+    res.status(200).json({ message: 'כמויות המוצרים עודכנו בהצלחה' });
 };
 
 export const closeSale = async (req, res, next) => {
     const { saleId } = req.params;
-    const { items } = req.body;
+    const { products } = req.body;
 
-    const sale = await db().from('sale_events').select('id, status').eq('id', saleId).single();
-    if (sale.error) return next(sale.error);
-    if (!sale.data) return next(err('מכירה לא נמצאה', 404));
-    if (sale.data.status === 'closed') return next(err('המכירה כבר סגורה'));
+    // 1. בדיקת סטטוס המכירה 
+    const { data: sale, error: saleErr } = await db().from('sales_events').select('status').eq('id', saleId).single();
+    if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
+    if (sale.status === 'closed') return next(err('המכירה כבר סגורה'));
 
-    const saleItems = await db().from('sale_items').select('id, product_id, opening_stock').eq('sale_id', saleId);
-    if (saleItems.error) return next(saleItems.error);
-    if (!saleItems.data?.length) return next(err('אין פריטים במכירה זו'));
+    // 2. שליפת כל הפריטים ששויכו למכירה הזו 
+    const { data: saleItems, error: itemsErr } = await db().from('sale_items').select('id, product_id, opening_stock').eq('sale_id', saleId);
+    if (itemsErr || !saleItems?.length) return next(err('אין פריטים במכירה זו'));
 
-    if (!items || !Array.isArray(items) || items.length === 0)
-        return next(err('יש לספק כמות נותרת לכל הפריטים במכירה'));
+    // 3. שליפת המלאי הנוכחי של כל המוצרים הרלוונטיים (Batch Fetch) 
+    const productIds = saleItems.map(si => si.product_id);
+    const { data: dbProducts } = await db().from('products').select('id, total_in_stock').in('id', productIds);
 
+    // 4. הכנת רשימת העדכונים בזיכרון 
     const remainingMap = {};
-    products.forEach(it => {
-        const key = it.product_id;
-        const qty = Number(it.remaining_quantity);
-        if (key && !isNaN(qty) && qty >= 0 && qty === Math.floor(qty)) { remainingMap[key] = qty; }
-    });
-   
-    const missingIds = saleItems.data.filter(
-        (item) => remainingMap[item.product_id] === undefined
-    );
-    if (missingIds.length > 0)
-        return next(err(`חסרה כמות נותרת ל־ ${missingIds.length} פריטים במכירה`));
+    products.forEach(it => { remainingMap[it.product_id] = Number(it.remaining_quantity); });
 
-    for (const item of saleItems.data) {
+    // 5. לולאת חישובים ועדכונים 
+    for (const item of saleItems) {
         const remaining = remainingMap[item.product_id];
-        if (remaining === undefined) continue;
-        if (remaining > item.opening_stock)
-            return next(err(`הכמות הנותרת של מוצר ${item.product_id} גדולה מהכמות שהייתה במכירה`));
-        const sold = Math.max(0, item.opening_stock - remaining);
+        if (remaining === undefined) return next(err(`חסר דיווח כמות למוצר ${item.product_id}`));
+        if (remaining > item.opening_stock) return next(err(`הכמות שנותרה למוצר ${item.product_id} גדולה מהכמות ההתחלתית`));
 
-        const { data: prod } = await db().from('products').select('total_in_stock').eq('id', item.product_id).single();
-        if (prod) {
-            const newStock = Math.max(0, (prod.total_in_stock ?? 0) - sold);
-            await db().from('products').update({ total_in_stock: newStock }).eq('id', item.product_id);
-        }
+        const sold = item.opening_stock - remaining;
+        const dbProd = dbProducts?.find(p => p.id === item.product_id);
+        const currentTotalInStock = dbProd?.total_in_stock ?? 0;
 
-        await db().from('sale_items').update({ sold_quantity: sold, remaining_quantity: remaining }).eq('id', item.id);
+        // עדכון המלאי הכללי בטבלת המוצרים 
+        const { error: pErr } = await db().from('products').update({ total_in_stock: Math.max(0, currentTotalInStock - sold) }).eq('id', item.product_id);
+        if (pErr) return next(pErr);
+
+        // עדכון נתוני המכירה בטבלת פריטי המכירה 
+        const { error: siErr } = await db().from('sale_items').update({ sold_quantity: sold, remaining_quantity: remaining }).eq('id', item.id);
+        if (siErr) return next(siErr);
     }
 
-    const { data: closed, error } = await db().from('sale_events').update({ status: 'closed' }).eq('id', saleId).select().single();
-    if (error) return next(error);
-    res.status(200).json(closed);
+    // 6. סגירת המכירה עצמה 
+    const { data: closed, error: closeErr } = await db().from('sales_events').update({ status: 'closed' }).eq('id', saleId).select().single();
+    if (closeErr) return next(closeErr);
+
+    res.status(200).json({ message: 'המכירה נסגרה והמלאי עודכן', data: closed });
 };
