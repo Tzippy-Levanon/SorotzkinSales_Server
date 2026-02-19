@@ -3,7 +3,15 @@ import ExcelJS from 'exceljs';
 
 let _db;
 const db = () => (_db ??= getSupabase());
-const err = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
+
+const ILS_FORMAT = '"₪" #,##0.00';
+
+// עמודות שמכילות ערכי כסף — לפי שם ה-key בכל דוח
+const CURRENCY_KEYS = new Set([
+    'מחיר עלות', 'מחיר מכירה',
+    'סה"כ מחיר עלות', 'סה"כ מחיר מכירה',
+    'רווח', 'יתרת חוב', 'סה"כ ערך מלאי'
+]);
 
 const sendExcel = async (res, columns, rows, summaryRow, fileName) => {
     const workbook = new ExcelJS.Workbook();
@@ -42,13 +50,21 @@ const sendExcel = async (res, columns, rows, summaryRow, fileName) => {
         // אנחנו מגדירים גבולות לכל תא לפי מספר העמודות שהגדרנו
         for (let i = 1; i <= columns.length; i++) {
             const cell = row.getCell(i);
+            const colKey = columns[i - 1]?.key ?? '';
+
             cell.border = {
                 top: { style: 'thin' },
                 left: { style: 'thin' },
                 bottom: { style: 'thin' },
                 right: { style: 'thin' }
             };
+
             cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+            // ★ פורמט ₪ לכל תא כספי — גם בשורות רגילות וגם בשורת הסיכום
+            if (CURRENCY_KEYS.has(colKey) && typeof cell.value === 'number') {
+                cell.numFmt = ILS_FORMAT;
+            }
         }
 
         // עיצוב כותרות (שורה 1)
