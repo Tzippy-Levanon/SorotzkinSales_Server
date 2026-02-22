@@ -277,3 +277,27 @@ export const getSupplierBalance = async (req, res, next) => {
         balance: supplier.balance
     });
 };
+
+export const getSupplierPayments = async (req, res, next) => {
+    const { supplier_id } = req.params;
+
+    // שליפת כל התשלומים של הספק + אמצעי תשלום + חשבונית מקושרת
+    const { data, error } = await db()
+        .from('supplier_payments')
+        .select('id, amount, date, payment_methods ( name ), supplier_invoices ( file_url, amount, reference_number )')
+        .eq('supplier_id', supplier_id)
+        .order('date', { ascending: false });
+
+    if (error) return next(error);
+
+    // עיצוב התוצאה להיות נוחה ללקוח
+    const formatted = (data || []).map(p => ({
+        id: p.id,
+        amount: p.amount,
+        date: p.date,
+        payment_method: p.payment_methods,
+        invoices: p.supplier_invoices || [],  // כל החשבוניות
+    }));
+
+    res.status(200).json(formatted);
+};

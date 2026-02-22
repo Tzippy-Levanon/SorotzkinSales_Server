@@ -274,7 +274,7 @@ export const getSuppliersReport = async (req, res, next) => {
 
     const { data, error } = await db()
         .from('suppliers')
-        .select('id, name, company_name, balance')
+        .select('id, name, company_name, phone, email, balance')
         .order('name', { ascending: true });
 
     if (error) return next(error);
@@ -283,6 +283,8 @@ export const getSuppliersReport = async (req, res, next) => {
         'מזהה': s.id,
         'שם ספק': s.name,
         'שם חברה': s.company_name,
+        'טלפון': s.phone || null,
+        'מייל': s.email || null,
         'יתרת חוב': s.balance || 0
     }));
 
