@@ -12,7 +12,8 @@ connectDB();
 import suppliersRoutes from "./api/routes/suppliers.routes.js";
 import productsRoutes from "./api/routes/products.routes.js";
 import salesRoutes from "./api/routes/sales.routes.js";
-import reportsRouts from "./api/routes/reports.routes.js"
+import reportsRouts from "./api/routes/reports.routes.js";
+import paymentMethodsRoutes from "./api/routes/payment-methods.routs.js";
 import errorMiddleware from "./api/middlewares/error.middleware.js";
 import { handleUploadError } from "./api/middlewares/upload.middleware.js";
 
@@ -39,6 +40,7 @@ app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/reports", reportsRouts);
+app.use("/api/paymentMethods", paymentMethodsRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 Server is running");
