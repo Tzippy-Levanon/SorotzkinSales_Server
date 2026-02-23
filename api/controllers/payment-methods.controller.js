@@ -8,6 +8,7 @@ export const getAllPaymentMethods = async (req, res, next) => {
         .from('payment_methods')
         .select('*')
         .order('id', { ascending: true });
+
     if (error) return next(error);
     res.status(200).json(data);
 };

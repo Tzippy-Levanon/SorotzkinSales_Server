@@ -10,6 +10,7 @@ export const getAllSuppliers = async (req, res, next) => {
         .from('suppliers')
         .select('*')
         .order('name', { ascending: true });
+
     if (error) return next(error);
     res.status(200).json(data);
 };
@@ -27,8 +28,12 @@ export const addSupplier = async (req, res, next) => {
     if (!cleanPhone && !cleanEmail) return next(err('חובה לספק לפחות צורת התקשרות אחת (טלפון או מייל)'));
 
     // 2. הבדיקה המאוחדת והחכמה (השימוש ב-OR) // אנחנו בודקים: האם יש מישהו עם השם הזה, שיש לו את הטלפון הזה או את המייל הזה? 
-    const { data: existing, error: checkErr } = await db().from('suppliers').select('id').eq('name', cleanName)
-        .or(`phone.eq.${cleanPhone},email.eq.${cleanEmail}`).maybeSingle();
+    const { data: existing, error: checkErr } = await db()
+        .from('suppliers')
+        .select('id')
+        .eq('name', cleanName)
+        .or(`phone.eq.${cleanPhone},email.eq.${cleanEmail}`)
+        .maybeSingle();
 
     if (checkErr) return next(checkErr);
     if (existing) return next(err('כבר קיים ספק במערכת עם שם זהה ופרטי התקשרות אלו', 409));

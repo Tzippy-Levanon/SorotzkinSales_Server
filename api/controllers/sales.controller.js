@@ -9,6 +9,7 @@ export const getAllSales = async (req, res, next) => {
         .from('sales_events')
         .select('*')
         .order('date', { ascending: false });
+
     if (error) return next(error);
     res.status(200).json(data);
 };
@@ -24,6 +25,7 @@ export const addSale = async (req, res, next) => {
         .insert({ name: name.trim(), date: date, status: 'open' })
         .select()
         .single();
+
     if (error) return next(error);
     res.status(201).json(data);
 };
@@ -31,17 +33,30 @@ export const addSale = async (req, res, next) => {
 export const addProductsToSale = async (req, res, next) => {
     const { saleId } = req.params;
     const { products } = req.body;
-    
+
     if (!products || !Array.isArray(products) || products.length === 0) return next(err('יש לספק מערך של מוצרים'));
 
-    const { data: sale, error: saleErr } = await db().from('sales_events').select('status').eq('id', saleId).single();
+    const { data: sale, error: saleErr } = await db()
+        .from('sales_events').select('status')
+        .eq('id', saleId)
+        .single();
+
     if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
     if (sale.status !== 'open') return next(err('המכירה סגורה לשינויים'));
+
     const productIds = products.map(p => p.product_id);
-    const { data: dbProducts, error: prodErr } = await db().from('products').select('id, cost_price, selling_price, total_in_stock, is_active').in('id', productIds);
+    const { data: dbProducts, error: prodErr } = await db()
+        .from('products')
+        .select('id, cost_price, selling_price, total_in_stock, is_active')
+        .in('id', productIds);
+
     if (prodErr) return next(prodErr);
 
-    const { data: existingItems } = await db().from('sale_items').select('product_id, opening_stock').eq('sale_id', saleId);
+    const { data: existingItems } = await db()
+        .from('sale_items')
+        .select('product_id, opening_stock')
+        .eq('sale_id', saleId);
+
     const itemsToInsert = [];
 
     for (const p of products) {
@@ -54,11 +69,13 @@ export const addProductsToSale = async (req, res, next) => {
         const totalRequested = currentInSale + p.quantity;
 
         if (totalRequested > dbProd.total_in_stock) {
-            return next(err(`חוסר במלאי למוצר ${p.product_id}.+"\n"+במלאי: ${dbProd.total_in_stock}, במכירה כבר יש: ${currentInSale} מהמוצר.`));
+            return next(err(`חוסר במלאי למוצר ${p.product_id}. במלאי: ${dbProd.total_in_stock}, במכירה כבר יש: ${currentInSale} מהמוצר.`));
         }
 
         if (existing) {
-            const { error: updErr } = await db().from('sale_items').update({ opening_stock: totalRequested, remaining_quantity: totalRequested })
+            const { error: updErr } = await db()
+                .from('sale_items')
+                .update({ opening_stock: totalRequested, remaining_quantity: totalRequested })
                 .eq('sale_id', saleId).eq('product_id', p.product_id);
 
             if (updErr) return next(updErr);
@@ -72,7 +89,11 @@ export const addProductsToSale = async (req, res, next) => {
     }
 
     if (itemsToInsert.length > 0) {
-        const { data, error } = await db().from('sale_items').insert(itemsToInsert).select();
+        const { data, error } = await db()
+            .from('sale_items')
+            .insert(itemsToInsert)
+            .select();
+
         if (error) return next(error);
         return res.status(201).json({ message: 'המוצרים נוספו/עודכנו בהצלחה', data });
     }
@@ -85,17 +106,29 @@ export const closeSale = async (req, res, next) => {
     const { products } = req.body;
 
     // 1. בדיקת סטטוס המכירה 
-    const { data: sale, error: saleErr } = await db().from('sales_events').select('status').eq('id', saleId).single();
+    const { data: sale, error: saleErr } = await db()
+        .from('sales_events')
+        .select('status')
+        .eq('id', saleId)
+        .single();
+
     if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
     if (sale.status === 'closed') return next(err('המכירה כבר סגורה'));
 
     // 2. שליפת כל הפריטים ששויכו למכירה הזו 
-    const { data: saleItems, error: itemsErr } = await db().from('sale_items').select('id, product_id, opening_stock').eq('sale_id', saleId);
+    const { data: saleItems, error: itemsErr } = await db()
+        .from('sale_items')
+        .select('id, product_id, opening_stock')
+        .eq('sale_id', saleId);
+
     if (itemsErr || !saleItems?.length) return next(err('אין פריטים במכירה זו'));
 
     // 3. שליפת המלאי הנוכחי של כל המוצרים הרלוונטיים (Batch Fetch) 
     const productIds = saleItems.map(si => si.product_id);
-    const { data: dbProducts } = await db().from('products').select('id, total_in_stock').in('id', productIds);
+    const { data: dbProducts } = await db()
+        .from('products')
+        .select('id, total_in_stock')
+        .in('id', productIds);
 
     // 4. הכנת רשימת העדכונים בזיכרון 
     const remainingMap = {};
@@ -112,16 +145,29 @@ export const closeSale = async (req, res, next) => {
         const currentTotalInStock = dbProd?.total_in_stock ?? 0;
 
         // עדכון המלאי הכללי בטבלת המוצרים 
-        const { error: pErr } = await db().from('products').update({ total_in_stock: Math.max(0, currentTotalInStock - sold) }).eq('id', item.product_id);
+        const { error: pErr } = await db()
+            .from('products')
+            .update({ total_in_stock: Math.max(0, currentTotalInStock - sold) })
+            .eq('id', item.product_id);
+
         if (pErr) return next(pErr);
 
         // עדכון נתוני המכירה בטבלת פריטי המכירה 
-        const { error: siErr } = await db().from('sale_items').update({ sold_quantity: sold, remaining_quantity: remaining }).eq('id', item.id);
+        const { error: siErr } = await db()
+            .from('sale_items')
+            .update({ sold_quantity: sold, remaining_quantity: remaining })
+            .eq('id', item.id);
+
         if (siErr) return next(siErr);
     }
 
     // 6. סגירת המכירה עצמה 
-    const { data: closed, error: closeErr } = await db().from('sales_events').update({ status: 'closed' }).eq('id', saleId).select().single();
+    const { data: closed, error: closeErr } = await db()
+        .from('sales_events').update({ status: 'closed' })
+        .eq('id', saleId)
+        .select()
+        .single();
+
     if (closeErr) return next(closeErr);
 
     res.status(200).json({ message: 'המכירה נסגרה והמלאי עודכן', data: closed });

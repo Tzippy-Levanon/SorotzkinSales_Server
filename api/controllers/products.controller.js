@@ -9,6 +9,7 @@ export const getAllProducts = async (req, res, next) => {
         .from('products')
         .select('*, suppliers(name)')
         .order('name', { ascending: true });
+
     if (error) return next(error);
     res.status(200).json(data);
 };
@@ -71,6 +72,7 @@ export const addProduct = async (req, res, next) => {
         .insert({ name: name.trim(), supplier_id: supplier_id, cost_price: cost, selling_price: selling, is_active: is_active, total_in_stock: stock })
         .select()
         .single();
+
     if (error) return next(error);
     res.status(201).json(data);
 };
