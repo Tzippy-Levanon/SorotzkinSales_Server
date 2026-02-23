@@ -8,7 +8,7 @@ export const getAllSales = async (req, res, next) => {
     const { data, error } = await db()
         .from('sales_events')
         .select('*')
-        .order('id', { ascending: false });
+        .order('date', { ascending: false });
     if (error) return next(error);
     res.status(200).json(data);
 };

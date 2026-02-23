@@ -9,7 +9,7 @@ export const getAllSuppliers = async (req, res, next) => {
     const { data, error } = await db()
         .from('suppliers')
         .select('*')
-        .order('id', { ascending: true });
+        .order('name', { ascending: true });
     if (error) return next(error);
     res.status(200).json(data);
 };
