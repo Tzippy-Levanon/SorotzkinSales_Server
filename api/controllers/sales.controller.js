@@ -101,6 +101,28 @@ export const addProductsToSale = async (req, res, next) => {
     res.status(200).json({ message: 'כמויות המוצרים עודכנו בהצלחה' });
 };
 
+// DELETE /api/sales/:saleId/products/:productId
+// מסיר מוצר ספציפי ממכירה פתוחה
+export const removeSaleItem = async (req, res, next) => {
+    const { saleId, productId } = req.params;
+
+    // וודא שהמכירה קיימת ופתוחה
+    const { data: sale, error: saleErr } = await db()
+        .from('sales_events').select('status').eq('id', saleId).single();
+    if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
+    if (sale.status !== 'open') return next(err('לא ניתן לשנות מכירה סגורה'));
+
+    // מחק את הפריט
+    const { error: delErr } = await db()
+        .from('sale_items')
+        .delete()
+        .eq('sale_id', saleId)
+        .eq('product_id', productId);
+
+    if (delErr) return next(delErr);
+    res.status(200).json({ message: 'המוצר הוסר מהמכירה' });
+};
+
 export const closeSale = async (req, res, next) => {
     const { saleId } = req.params;
     const { products } = req.body;
