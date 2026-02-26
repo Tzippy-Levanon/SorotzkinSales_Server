@@ -104,16 +104,17 @@ export const getInventoryReport = async (req, res, next) => {
     const formattedData = data.map(p => ({
         "שם מוצר": p.name,
         "כמות במלאי": p.total_in_stock,
-        "מחיר עלות": p.cost_price,
-        "סטטוס": p.is_active ? 'פעיל' : 'לא פעיל'
+        "סטטוס": p.is_active ? 'פעיל' : 'לא פעיל',
+        "מחיר עלות": p.cost_price
+
     }));
 
     if (format === 'excel') {
         const columns = [
             { header: 'שם מוצר', key: 'שם מוצר' },
             { header: 'כמות במלאי', key: 'כמות במלאי' },
-            { header: 'מחיר עלות', key: 'מחיר עלות' },
-            { header: 'סטטוס', key: 'סטטוס' }
+            { header: 'סטטוס', key: 'סטטוס' },
+            { header: 'מחיר עלות', key: 'מחיר עלות' }
         ];
 
         const summary = {
@@ -190,28 +191,13 @@ export const getSalesReport = async (req, res, next) => {
 
     if (iErr) return next(iErr);
 
-    const productIds = saleItems.map(i => i.product_id);
-    const { data: arrivals, error: aErr } = await db()
-        .from('stock_arrival_items')
-        .select('product_id, quantity')
-        .in('product_id', productIds);
-
-    if (aErr) return next(aErr);
-
-    let maxArrivals = 0;
-
     const rows = saleItems.map(item => {
-        const productArrivals = arrivals.filter(a => a.product_id === item.product_id);
-        if (productArrivals.length > maxArrivals) maxArrivals = productArrivals.length;
-
-        const arrivalColumns = {};
-        productArrivals.forEach((arr, index) => { arrivalColumns[`הגעה ${index + 1}`] = arr.quantity; });
         const totalCost = (item.cost_price || 0) * (item.sold_quantity || 0);
         const totalSales = (item.selling_price || 0) * (item.sold_quantity || 0);
 
         return {
             'מוצר': item.products?.name || 'לא ידוע',
-            ...arrivalColumns,
+            'יצא למכירה': item.opening_stock || 0,
             'נמכר': item.sold_quantity || 0,
             'חזר': item.remaining_quantity || 0,
             'מחיר עלות': item.cost_price,
@@ -227,12 +213,9 @@ export const getSalesReport = async (req, res, next) => {
     const totalProfit = totalSellingPrice - totalCostPrice;
 
     if (format === 'excel') {
-        // בניית הגדרות עמודות דינמיות לאקסל כולל עמודות ההגעה
-        const cols = [{ header: 'מוצר', key: 'מוצר' }];
-        for (let i = 1; i <= maxArrivals; i++) {
-            cols.push({ header: `הגעה ${i}`, key: `הגעה ${i}` });
-        }
-        cols.push(
+        const cols = [
+            { header: 'מוצר', key: 'מוצר' },
+            { header: 'יצא למכירה', key: 'יצא למכירה' },
             { header: 'נמכר', key: 'נמכר' },
             { header: 'חזר', key: 'חזר' },
             { header: 'מחיר עלות', key: 'מחיר עלות' },
@@ -240,7 +223,7 @@ export const getSalesReport = async (req, res, next) => {
             { header: 'סה"כ מחיר עלות', key: 'סה"כ מחיר עלות' },
             { header: 'סה"כ מחיר מכירה', key: 'סה"כ מחיר מכירה' },
             { header: 'רווח', key: 'רווח' }
-        );
+        ];
 
         const summary = {
             'מוצר': 'סה"כ כללי:',

@@ -27,6 +27,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors({
   origin: process.env.CLIENT_URL ?? 'http://localhost:3000',
   credentials: true,
+  exposedHeaders: ['Content-Disposition'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
