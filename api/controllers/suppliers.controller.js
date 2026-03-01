@@ -128,7 +128,7 @@ export const recordStockArrival = async (req, res, next) => {
         stockItems.push({
             product_id: p.product_id,
             quantity: quantity,
-            cost_price: dbProd.cost_price
+            cost_price: p.cost_price  // המחיר החדש שהגיע עם הסחורה
         });
     }
 
