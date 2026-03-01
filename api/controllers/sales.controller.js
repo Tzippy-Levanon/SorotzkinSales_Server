@@ -194,3 +194,33 @@ export const closeSale = async (req, res, next) => {
 
     res.status(200).json({ message: 'המכירה נסגרה והמלאי עודכן', data: closed });
 };
+
+export const deleteSale = async (req, res, next) => {
+    const { saleId } = req.params;
+
+    const { data: sale, error: saleErr } = await db()
+        .from('sales_events')
+        .select('status')
+        .eq('id', saleId)
+        .single();
+
+    if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
+    if (sale.status === 'closed') return next(err('לא ניתן למחוק מכירה סגורה', 400));
+
+    // מחיקת פריטי המכירה קודם (foreign key)
+    const { error: itemsErr } = await db()
+        .from('sale_items')
+        .delete()
+        .eq('sale_id', saleId);
+
+    if (itemsErr) return next(itemsErr);
+
+    const { error: delErr } = await db()
+        .from('sales_events')
+        .delete()
+        .eq('id', saleId);
+
+    if (delErr) return next(delErr);
+
+    res.status(200).json({ message: 'המכירה נמחקה בהצלחה' });
+};

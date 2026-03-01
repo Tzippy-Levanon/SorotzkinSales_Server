@@ -76,3 +76,25 @@ export const addProduct = async (req, res, next) => {
     if (error) return next(error);
     res.status(201).json(data);
 };
+
+export const getProductArrivals = async (req, res, next) => {
+    const { id } = req.params;
+
+    const { data, error } = await db()
+        .from('stock_arrival_items')
+        .select('quantity, cost_price, stock_arrivals(arrival_date, notes, suppliers(name))')
+        .eq('product_id', id)
+        .order('stock_arrivals(arrival_date)', { ascending: false });
+
+    if (error) return next(error);
+
+    const formatted = (data || []).map(item => ({
+        date: item.stock_arrivals?.arrival_date,
+        quantity: item.quantity,
+        cost_price: item.cost_price,
+        supplier: item.stock_arrivals?.suppliers?.name || '—',
+        notes: item.stock_arrivals?.notes || null
+    }));
+
+    res.status(200).json(formatted);
+};
