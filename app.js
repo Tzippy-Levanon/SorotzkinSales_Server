@@ -38,7 +38,7 @@ app.use(
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }, // true רק בפרודקשן עם https
+    cookie: { secure: true }, // true רק בפרודקשן עם https
   })
 );
 
