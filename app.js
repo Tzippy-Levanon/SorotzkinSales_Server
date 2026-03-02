@@ -42,6 +42,10 @@ app.use(
   })
 );
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api', requireAuth);   // ← חוסם הכל חוץ מ-/api/auth
 app.use("/api/suppliers", suppliersRoutes);
