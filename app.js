@@ -31,8 +31,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// השורה הזו מאפשרת לגשת לקבצים בתיקיית uploads דרך הדפדפן 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// קבצי חשבוניות מוגשים מ-Supabase Storage (לא מהדיסק המקומי)
 app.use(cookieParser());
 app.use(
   session({

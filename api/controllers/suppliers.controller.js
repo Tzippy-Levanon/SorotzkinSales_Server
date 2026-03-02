@@ -234,29 +234,48 @@ export const recordPayment = async (req, res, next) => {
     });
 };
 
-// 5. העלאת חשבונית/קבלה לספק
+// 5. העלאת חשבונית/קבלה לספק — שמירה ב-Supabase Storage
 export const uploadInvoice = async (req, res, next) => {
     const { supplier_payment_id, amount, reference_number } = req.body;
 
-    // הקובץ צריך להיות ב-req.file (multer middleware)
     if (!req.file) return next(err('לא הועלה קובץ'));
 
-    const fileUrl = req.file.path || req.file.filename; // תלוי בהגדרת multer
+    // שם קובץ ייחודי ב-Supabase Storage
+    const ext = req.file.originalname.split('.').pop();
+    const fileName = `invoice-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
 
-    // עדכון ה-URL של החשבונית
+    // העלאה ל-Supabase Storage — bucket: invoices
+    const { error: uploadError } = await db()
+        .storage
+        .from('invoices')
+        .upload(fileName, req.file.buffer, {
+            contentType: req.file.mimetype,
+            upsert: false
+        });
+
+    if (uploadError) return next(uploadError);
+
+    // קבלת URL ציבורי לגישה לקובץ
+    const { data: urlData } = db()
+        .storage
+        .from('invoices')
+        .getPublicUrl(fileName);
+
+    const fileUrl = urlData.publicUrl;
+
+    // שמירת הרשומה ב-DB
     const { data, error } = await db()
         .from('supplier_invoices')
         .insert({
             file_url: fileUrl,
-            amount: amount ? Number(amount) : null, // סכום החשבונית הספציפית
-            reference_number: reference_number || null, // מספר חשבונית מהספק
-            supplier_payment_id: supplier_payment_id || null // קישור לתשלום (אופציונלי)
+            amount: amount ? Number(amount) : null,
+            reference_number: reference_number || null,
+            supplier_payment_id: supplier_payment_id || null
         })
         .select()
         .single();
 
     if (error) return next(error);
-    if (!data) return next(err('חשבונית לא נמצאה', 404));
 
     res.status(200).json({
         message: 'הקובץ הועלה בהצלחה',
