@@ -55,7 +55,51 @@ export const addSupplier = async (req, res, next) => {
     res.status(201).json(data);
 };
 
-// 3. רישום הגעת סחורה מהספק
+// 3. עדכון ספק
+export const updateSupplier = async (req, res, next) => {
+    const { id } = req.params;
+    const { name, phone, email, company_name } = req.body;
+
+    // 1. ניקוי
+    const cleanName = name?.trim();
+    const cleanPhone = phone?.trim();
+    const cleanEmail = email?.trim();
+
+    if (!cleanName) return next(err('שם הספק הוא שדה חובה'));
+    if (!cleanPhone && !cleanEmail) return next(err('חובה לספק לפחות צורת התקשרות אחת (טלפון או מייל)'));
+
+    // 2. בדיקת כפילות — למעט הספק הנוכחי
+    const { data: existing, error: checkErr } = await db()
+        .from('suppliers')
+        .select('id')
+        .eq('name', cleanName)
+        .or(`phone.eq.${cleanPhone},email.eq.${cleanEmail}`)
+        .neq('id', id)
+        .maybeSingle();
+
+    if (checkErr) return next(checkErr);
+    if (existing) return next(err('כבר קיים ספק אחר במערכת עם שם זהה ופרטי התקשרות אלו', 409));
+
+    // 3. הכנת האובייקט לעדכון
+    const supplierData = { name: cleanName };
+    if (cleanPhone) supplierData.phone = cleanPhone;
+    if (cleanEmail) supplierData.email = cleanEmail;
+    if (company_name) supplierData.company_name = company_name.trim();
+
+    // 4. ביצוע העדכון
+    const { data, error } = await db()
+        .from('suppliers')
+        .update(supplierData)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) return next(error);
+    if (!data) return next(err('ספק לא נמצא', 404));
+    res.json(data);
+};
+
+// 4. רישום הגעת סחורה מהספק
 export const recordStockArrival = async (req, res, next) => {
     const { supplier_id, products, arrival_date, notes } = req.body;
 
@@ -176,7 +220,7 @@ export const recordStockArrival = async (req, res, next) => {
     });
 };
 
-// 4. רישום תשלום לספק
+// 5. רישום תשלום לספק
 export const recordPayment = async (req, res, next) => {
     const { supplier_id, amount, date, payment_method_id } = req.body;
 
@@ -234,7 +278,7 @@ export const recordPayment = async (req, res, next) => {
     });
 };
 
-// 5. העלאת חשבונית/קבלה לספק — שמירה ב-Supabase Storage
+// 6. העלאת חשבונית/קבלה לספק — שמירה ב-Supabase Storage
 export const uploadInvoice = async (req, res, next) => {
     const { supplier_payment_id, amount, reference_number } = req.body;
 
@@ -283,7 +327,7 @@ export const uploadInvoice = async (req, res, next) => {
     });
 };
 
-// 6. הצגת חוב נוכחי לספק
+// 7. הצגת חוב נוכחי לספק
 export const getSupplierBalance = async (req, res, next) => {
     const { supplier_id } = req.params;
 
