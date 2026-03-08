@@ -93,7 +93,7 @@ export const getInventoryReport = async (req, res, next) => {
 
     const { data, error } = await db()
         .from('products')
-        .select('id, name, total_in_stock, cost_price, is_active')
+        .select('id, name, total_in_stock, cost_price, is_active, suppliers(name)')
         .order('name', { ascending: true });
 
     if (error) return next(error);
@@ -103,10 +103,10 @@ export const getInventoryReport = async (req, res, next) => {
 
     const formattedData = data.map(p => ({
         "שם מוצר": p.name,
+        "ספק": p.suppliers?.name || '',
         "כמות במלאי": p.total_in_stock,
         "סטטוס": p.is_active ? 'פעיל' : 'לא פעיל',
         "מחיר עלות": p.cost_price
-
     }));
 
     if (format === 'excel') {
@@ -185,7 +185,7 @@ export const getSalesReport = async (req, res, next) => {
 
     const { data: saleItems, error: iErr } = await db()
         .from('sale_items')
-        .select('*, products(name)')
+        .select('*, products(name, suppliers(name))')
         .eq('sale_id', sale_id)
         .order('products(name)', { ascending: true });
 
@@ -197,6 +197,7 @@ export const getSalesReport = async (req, res, next) => {
 
         return {
             'מוצר': item.products?.name || 'לא ידוע',
+            'ספק': item.products?.suppliers?.name || '',
             'יצא למכירה': item.opening_stock || 0,
             'נמכר': item.sold_quantity || 0,
             'חזר': item.remaining_quantity || 0,
