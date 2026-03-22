@@ -18,6 +18,7 @@ import authRoutes from './api/routes/auth.routes.js';
 import errorMiddleware from "./api/middlewares/error.middleware.js";
 import { handleUploadError } from "./api/middlewares/upload.middleware.js";
 import requireAuth from './api/middlewares/auth.middleware.js';
+import getSupabase from "./config/db.js";
 
 const app = express();
 // הגדרות עבור קבצים סטטיים ב-ES Modules
@@ -42,7 +43,8 @@ app.use(
   })
 );
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  await getSupabase().from('suppliers').select('id').limit(1);
   res.json({ status: 'ok' });
 });
 
