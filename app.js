@@ -36,10 +36,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'fallback-secret',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: true, sameSite: 'none' }, // true רק בפרודקשן עם https
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',     // true רק ב-Render
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000   // 7 ימים
+    },
   })
 );
 
