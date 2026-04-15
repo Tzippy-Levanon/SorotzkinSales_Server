@@ -49,13 +49,11 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api', requireAuth);   // ← חוסם הכל חוץ מ-/api/auth
-app.use("/api/suppliers", suppliersRoutes);
-app.use("/api/products", productsRoutes);
-app.use("/api/sales", salesRoutes);
-app.use("/api/reports", reportsRouts);
-app.use("/api/paymentMethods", paymentMethodsRoutes);
-
+app.use('/api/suppliers', requireAuth, suppliersRoutes);
+app.use('/api/products', requireAuth, productsRoutes);
+app.use('/api/sales', requireAuth, salesRoutes);
+app.use('/api/reports', requireAuth, reportsRouts);
+app.use('/api/paymentMethods', requireAuth, paymentMethodsRoutes);
 app.get("/", (req, res) => {
   res.send("🚀 Server is running");
 });
