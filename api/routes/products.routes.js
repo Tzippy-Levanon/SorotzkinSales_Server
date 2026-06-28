@@ -4,7 +4,6 @@ import { getAllProducts, updateProduct, addProduct, getProductArrivals } from '.
 const router = express.Router();
 
 router.get('', getAllProducts);
-// GET /api/products/:id/arrivals — היסטוריית הגעות מלאי למוצר
 router.get('/:id/arrivals', getProductArrivals);
 router.post('', addProduct);
 router.patch('/:id', updateProduct);

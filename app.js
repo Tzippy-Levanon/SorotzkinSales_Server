@@ -4,10 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import session from "express-session";
 import cookieParser from 'cookie-parser';
-
 import { connectDB } from "./config/db.js";
-connectDB();
-
 import './env.js';
 import suppliersRoutes from "./api/routes/suppliers.routes.js";
 import productsRoutes from "./api/routes/products.routes.js";
@@ -20,11 +17,14 @@ import { handleUploadError } from "./api/middlewares/upload.middleware.js";
 import requireAuth from './api/middlewares/auth.middleware.js';
 import getSupabase from "./config/db.js";
 
+connectDB();
+
 const app = express();
-// הגדרות עבור קבצים סטטיים ב-ES Modules
+// __filename ו-__dirname לא קיימים ב-ES Modules — יוצרים אותם ידנית
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// exposedHeaders מאפשר ל-React לקרוא את ה-Content-Disposition header (לשם קובץ)
 app.use(cors({
   origin: process.env.CLIENT_URL ?? 'http://localhost:3000',
   credentials: true,
@@ -32,22 +32,22 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// קבצי חשבוניות מוגשים מ-Supabase Storage (לא מהדיסק המקומי)
 app.use(cookieParser());
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'fallback-secret',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',     // true רק ב-Render
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000   // 7 ימים
-    },
-  })
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'fallback-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  },
+})
 );
 
+// ── /api/health ── ping לשרת + קריאה למסד — מונע sleep mode ב-Render ו-Supabase
 app.get('/api/health', async (req, res) => {
   await getSupabase().from('suppliers').select('id').limit(1);
   res.json({ status: 'ok' });

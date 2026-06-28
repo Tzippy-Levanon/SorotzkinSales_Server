@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret';
 
+// ── requireAuth ── middleware לאימות: בודק Cookie לפני כל route מוגן
 const requireAuth = (req, res, next) => {
     const token = req.cookies?.auth_token;
     if (!token) return res.status(401).json({ error: 'נדרשת התחברות' });

@@ -31,7 +31,7 @@ const sendExcel = async (res, columns, rows, summaryRow, fileName) => {
 
     // הוספת שורת סיכום
     if (summaryRow) {
-        worksheet.addRow({}); // שורה ריקה להפרדה
+        worksheet.addRow({});
 
         // יצירת אובייקט סיכום מלא כדי שכל התאים יקבלו גבולות
         const fullSummary = {};
@@ -61,7 +61,6 @@ const sendExcel = async (res, columns, rows, summaryRow, fileName) => {
 
             cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
 
-            // ★ פורמט ₪ לכל תא כספי — גם בשורות רגילות וגם בשורת הסיכום
             if (CURRENCY_KEYS.has(colKey) && typeof cell.value === 'number') {
                 cell.numFmt = ILS_FORMAT;
             }

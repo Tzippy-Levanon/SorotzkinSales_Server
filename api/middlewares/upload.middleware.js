@@ -10,8 +10,7 @@ const ALLOWED_FILE_TYPES = {
     'application/msword': '.doc'
 };
 
-// הגבלת גודל קובץ - 5MB
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // שמירה בזיכרון בלבד — הקובץ יועלה ל-Supabase Storage, לא לדיסק
 const storage = multer.memoryStorage();
@@ -30,7 +29,7 @@ const upload = multer({
     limits: { fileSize: MAX_FILE_SIZE }
 });
 
-// middleware לטיפול בשגיאות multer
+// ── handleUploadError ── middleware לשגיאות multer (גודל/סוג לא נתמך)
 export const handleUploadError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE')

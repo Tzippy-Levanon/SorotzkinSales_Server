@@ -4,6 +4,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret';
 const APP_PASSWORD = process.env.APP_PASSWORD || 'password';
 const COOKIE_NAME = 'auth_token';
 
+// ── login ── בדיקת סיסמה ויצירת JWT Cookie
 export const login = (req, res) => {
     const { password } = req.body;
     if (password !== APP_PASSWORD) {
@@ -19,11 +20,13 @@ export const login = (req, res) => {
     res.json({ ok: true });
 };
 
+// ── logout ── מחיקת ה-Cookie
 export const logout = (req, res) => {
     res.clearCookie(COOKIE_NAME);
     res.json({ ok: true });
 };
 
+// ── getMe ── בדיקת תוקף ה-Cookie הקיים
 export const getMe = (req, res) => {
     const token = req.cookies?.[COOKIE_NAME];
     if (!token) return res.status(401).json({ error: 'לא מחובר' });

@@ -14,6 +14,7 @@ export const getAllSales = async (req, res, next) => {
     res.status(200).json(data);
 };
 
+// ── addSale ── יצירת מכירה חדשה בסטטוס open
 export const addSale = async (req, res, next) => {
     const { name, date } = req.body;
 
@@ -30,6 +31,7 @@ export const addSale = async (req, res, next) => {
     res.status(201).json(data);
 };
 
+// ── addProductsToSale ── הוספת מוצרים למכירה פתוחה עם בדיקת מלאי
 export const addProductsToSale = async (req, res, next) => {
     const { saleId } = req.params;
     const { products } = req.body;
@@ -101,12 +103,10 @@ export const addProductsToSale = async (req, res, next) => {
     res.status(200).json({ message: 'כמויות המוצרים עודכנו בהצלחה' });
 };
 
-// DELETE /api/sales/:saleId/products/:productId
-// מסיר מוצר ספציפי ממכירה פתוחה
+// ── removeSaleItem ── הסרת מוצר ממכירה פתוחה
 export const removeSaleItem = async (req, res, next) => {
     const { saleId, productId } = req.params;
 
-    // וודא שהמכירה קיימת ופתוחה
     const { data: sale, error: saleErr } = await db()
         .from('sales_events').select('status').eq('id', saleId).single();
     if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
@@ -123,11 +123,11 @@ export const removeSaleItem = async (req, res, next) => {
     res.status(200).json({ message: 'המוצר הוסר מהמכירה' });
 };
 
+// ── closeSale ── סגירת מכירה: חישוב מכירות + עדכון מלאי
 export const closeSale = async (req, res, next) => {
     const { saleId } = req.params;
     const { products } = req.body;
 
-    // 1. בדיקת סטטוס המכירה 
     const { data: sale, error: saleErr } = await db()
         .from('sales_events')
         .select('status')
@@ -137,7 +137,6 @@ export const closeSale = async (req, res, next) => {
     if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
     if (sale.status === 'closed') return next(err('המכירה כבר סגורה'));
 
-    // 2. שליפת כל הפריטים ששויכו למכירה הזו 
     const { data: saleItems, error: itemsErr } = await db()
         .from('sale_items')
         .select('id, product_id, opening_stock')
@@ -145,18 +144,15 @@ export const closeSale = async (req, res, next) => {
 
     if (itemsErr || !saleItems?.length) return next(err('אין פריטים במכירה זו'));
 
-    // 3. שליפת המלאי הנוכחי של כל המוצרים הרלוונטיים (Batch Fetch) 
     const productIds = saleItems.map(si => si.product_id);
     const { data: dbProducts } = await db()
         .from('products')
         .select('id, total_in_stock')
         .in('id', productIds);
 
-    // 4. הכנת רשימת העדכונים בזיכרון 
     const remainingMap = {};
     products.forEach(it => { remainingMap[it.product_id] = Number(it.remaining_quantity); });
 
-    // 5. לולאת חישובים ועדכונים 
     for (const item of saleItems) {
         const remaining = remainingMap[item.product_id];
         if (remaining === undefined) return next(err(`חסר דיווח כמות למוצר ${item.product_id}`));
@@ -166,7 +162,6 @@ export const closeSale = async (req, res, next) => {
         const dbProd = dbProducts?.find(p => p.id === item.product_id);
         const currentTotalInStock = dbProd?.total_in_stock ?? 0;
 
-        // עדכון המלאי הכללי בטבלת המוצרים 
         const { error: pErr } = await db()
             .from('products')
             .update({ total_in_stock: Math.max(0, currentTotalInStock - sold) })
@@ -174,7 +169,6 @@ export const closeSale = async (req, res, next) => {
 
         if (pErr) return next(pErr);
 
-        // עדכון נתוני המכירה בטבלת פריטי המכירה 
         const { error: siErr } = await db()
             .from('sale_items')
             .update({ sold_quantity: sold, remaining_quantity: remaining })
@@ -183,7 +177,6 @@ export const closeSale = async (req, res, next) => {
         if (siErr) return next(siErr);
     }
 
-    // 6. סגירת המכירה עצמה 
     const { data: closed, error: closeErr } = await db()
         .from('sales_events').update({ status: 'closed' })
         .eq('id', saleId)
@@ -195,6 +188,7 @@ export const closeSale = async (req, res, next) => {
     res.status(200).json({ message: 'המכירה נסגרה והמלאי עודכן', data: closed });
 };
 
+// ── deleteSale ── מחיקת מכירה פתוחה בלבד (כולל פריטיה)
 export const deleteSale = async (req, res, next) => {
     const { saleId } = req.params;
 
@@ -207,7 +201,6 @@ export const deleteSale = async (req, res, next) => {
     if (saleErr || !sale) return next(err('מכירה לא נמצאה', 404));
     if (sale.status === 'closed') return next(err('לא ניתן למחוק מכירה סגורה', 400));
 
-    // מחיקת פריטי המכירה קודם (foreign key)
     const { error: itemsErr } = await db()
         .from('sale_items')
         .delete()

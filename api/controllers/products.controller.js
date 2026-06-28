@@ -14,6 +14,7 @@ export const getAllProducts = async (req, res, next) => {
     res.status(200).json(data);
 };
 
+// ── updateProduct ── עדכון שדות חלקי (PATCH) עם ולידציה לכל שדה
 export const updateProduct = async (req, res, next) => {
     const body = req.body;
     const updates = {};
@@ -51,6 +52,7 @@ export const updateProduct = async (req, res, next) => {
     res.status(200).json(data);
 };
 
+// ── addProduct ── הוספת מוצר חדש עם ולידציה מלאה
 export const addProduct = async (req, res, next) => {
     const { name, supplier_id, cost_price, selling_price, is_active = true, total_in_stock = 0 } = req.body;
 
@@ -77,6 +79,7 @@ export const addProduct = async (req, res, next) => {
     res.status(201).json(data);
 };
 
+// ── getProductArrivals ── היסטוריית הגעות מלאי למוצר ספציפי
 export const getProductArrivals = async (req, res, next) => {
     const { id } = req.params;
 
